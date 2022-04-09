@@ -1,34 +1,35 @@
+from urllib.request import urlopen
 from bs4 import BeautifulSoup
 import requests
 import re
 
 class bjpenn_parse:
 
-    def parse(self):
+    def get_seed(self):
         url = 'https://www.bjpenn.com'
         r = requests.get("https://www.bjpenn.com/mma-news/ufc/jairzinho-rozenstruik-warns-marcin-tybura-of-his-power-ahead-of-ufc-273-as-soon-as-i-start-touching-people-they-have-big-problems/")
         soup = BeautifulSoup(r.text, 'html.parser')
         return soup
 
-    #need to fix regex for http urls.
-    def parseLink(self, entry):
-        url = re.findAll("http.*/",entry);
-        print(url)
 
-    def getRelativeLinks(self, soup):
-            relative_links = soup.findAll('li')
+    def get_dirty_links(self, soup_obj):
+        dirty_links = []
+        unparsed_links = soup_obj.findAll('a')
+        for link in unparsed_links:
+            if link.has_attr('href') :
+                dirty_links.append(link['href'])
 
-            return relative_links
+        return dirty_links
 
-    ##dirty links are the entries inside the table. the links need to be parsed and stripped.
+    
     def __init__(self):
-         bs = self.parse()
-         dirty_links = self.getRelativeLinks(bs)
+         bs = self.get_seed()
+         links = self.get_dirty_links(bs)
+         print(links)
         
 
 def main():
    bjp = bjpenn_parse()
-   print("test")
 
 
 if __name__ == "__main__":
