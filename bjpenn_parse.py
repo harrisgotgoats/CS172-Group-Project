@@ -3,23 +3,23 @@ from bs4 import BeautifulSoup
 import requests
 import validators
 from validators import ValidationFailure
+from tail_recursive import tail_recursive
 
+#How the JSON will be represented.
+class entry:
+    link = ""
+    text = ""
 
-class bjpenn_crawler:
+    def __init__(self,l,t) :
+        self.link = l 
+        self.text = t 
 
-    #How the JSON will be represented.
-    class entry:
-        link = ""
-        text = ""
+    def __str__(self):
+        return self.link + ':' + self.text
 
-        def __init__(self,l,t) :
-            self.link = l 
-            self.text = t 
+def bjpenn_crawler():
 
-        def __str__(self):
-            return self.link + ':' + self.text
-
-    def check_link(self, link):
+    def check_link(link):
         try:
             result = validators.url(link)
         except Exception as e:
@@ -29,10 +29,11 @@ class bjpenn_crawler:
              return False
 
         return True
+    
 
-    def get_seed(self,link):
+    def get_seed(link):
    
-        if self.check_link(link):
+        if check_link(link):
             r = requests.get(link)
             soup = BeautifulSoup(r.text, 'html.parser')
             return soup
@@ -41,7 +42,8 @@ class bjpenn_crawler:
 
     
     #gets all links on a page. grabs anythin with an <a href tag so some are garbage (like '#')
-    def get_dirty_links(self, soup_obj):
+
+    def get_dirty_links(soup_obj):
         if soup_obj == None:
             return []
 
@@ -62,11 +64,11 @@ class bjpenn_crawler:
 
    
     #recurse until terminate conditions are true, implemented with tail recursion (may need to modify server to expand stack limitation in python)
-    def recurse_get_dirty_links(self,soup_obj,link_list):
+    def recurse_get_dirty_links(soup_obj,link_list):
         def terminate_check():
             return (len(link_list) > 1)
 
-        dirty_links = self.get_dirty_links(soup_obj)
+        dirty_links = get_dirty_links(soup_obj)
         if dirty_links != []:
             link_list = link_list + dirty_links
 
@@ -74,20 +76,22 @@ class bjpenn_crawler:
             if terminate_check():
                 return link_list
 
-            self.recurse_get_dirty_links(self.get_seed(link),link_list)
+            recurse_get_dirty_links(get_seed(link),link_list)
+
 
     #remove duplicates and possibly pre process further later on if needed
-    def filter_links(self, dirty_link_list):
+    def filter_links(dirty_link_list):
          if dirty_link_list == None:
              return []
         
-         return dirty_link_list
+
+         return set(dirty_link_list)
 
     #Parses the text on the page by searching between <p> tags. Returns one single string with all the text.
-    def get_text_from_link(self, link):
+    def get_text_from_link(link):
         text = ""
-        seed = self.get_seed(link)
-     
+        seed = get_seed(link)
+    
         if seed == None:
             return ""
         
@@ -98,20 +102,20 @@ class bjpenn_crawler:
         except(...):
             True
 
-        return text
+        return (''.join(s for s in text if ord(s)>31 and ord(s)<126))
   
     #creates the objects that the I will then convert to JSON objects
-    def get_entries(self, clean_link_list):
+    def get_entries(clean_link_list):
         entries = []
         for clean_link in clean_link_list:
-            new_entry = self.entry(clean_link, self.get_text_from_link(clean_link))
+            new_entry = entry(clean_link, get_text_from_link(clean_link))
             entries.append(new_entry)
 
         return entries
 
 
     #converts entries to jsons
-    def get_jsons(self,entries):
+    def get_jsons(entries):
         json_list = []
       
 
@@ -121,7 +125,7 @@ class bjpenn_crawler:
         return json_list
 
     #filters out pages that have no text on them
-    def filter_jsons(self,dirty_jsons):
+    def filter_jsons(dirty_jsons):
         
         for i in range( len(dirty_jsons) ):
             loaded_json = json.loads(dirty_jsons[i])
@@ -131,15 +135,15 @@ class bjpenn_crawler:
         return dirty_jsons
         
 
-    def __init__(self):
-        
-         seed = self.get_seed("https://www.bjpenn.com/mma-news/")
-         link_list = self.recurse_get_dirty_links(seed,[])
-         filtered_link_list = self.filter_links(link_list)
-         entries = self.get_entries(filtered_link_list)
-         json_objects = self.get_jsons(entries)
-         filtered_jsons = self.filter_jsons(json_objects)
-         print(filtered_jsons)
+  
+    seed_url = "https://www.bjpenn.com/mma-news/"
+    seed = get_seed(link=seed_url)
+    link_list = recurse_get_dirty_links(seed,[])
+    filtered_link_list = filter_links(link_list)
+    entries = get_entries(filtered_link_list)
+    json_objects = get_jsons(entries)
+    filtered_jsons = filter_jsons(json_objects)
+    print(filtered_jsons)
        
 
 def main():
