@@ -3,7 +3,40 @@ from bs4 import BeautifulSoup
 import requests
 import validators
 from validators import ValidationFailure
-from tail_recursive import tail_recursive
+import sys
+
+
+"""source: https://code.activestate.com/recipes/474088/"""
+class TailRecurseException(Exception):
+  def __init__(self, args, kwargs):
+    self.args = args
+    self.kwargs = kwargs
+
+def tail_call_optimized(g):
+  """
+  This function decorates a function with tail call
+  optimization. It does this by throwing an exception
+  if it is it's own grandparent, and catching such
+  exceptions to fake the tail call optimization.
+  
+  This function fails if the decorated
+  function recurses in a non-tail context.
+  source: https://code.activestate.com/recipes/474088/
+  """
+  def func(*args, **kwargs):
+    f = sys._getframe()
+    if f.f_back and f.f_back.f_back \
+        and f.f_back.f_back.f_code == f.f_code:
+      raise TailRecurseException(args, kwargs)
+    else:
+      while 1:
+        try:
+          return g(*args, **kwargs)
+        except TailRecurseException as e:
+          args = e.args
+          kwargs = e.kwargs
+  func.__doc__ = g.__doc__
+  return func
 
 #How the JSON will be represented.
 class entry:
@@ -64,6 +97,7 @@ def bjpenn_crawler():
 
    
     #recurse until terminate conditions are true, implemented with tail recursion (may need to modify server to expand stack limitation in python)
+    @tail_call_optimized
     def recurse_get_dirty_links(soup_obj,link_list):
         def terminate_check():
             return (len(link_list) > 1)
