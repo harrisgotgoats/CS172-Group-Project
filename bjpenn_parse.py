@@ -98,7 +98,6 @@ class bjpenn_crawler:
         except(...):
             True
 
-        print(text)
         return text
   
     #creates the objects that the I will then convert to JSON objects
