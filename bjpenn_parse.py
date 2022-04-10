@@ -14,33 +14,43 @@ class bjpenn_crawler:
         dirty_links = []
         unparsed_links = soup_obj.findAll('a')
         for link in unparsed_links:
-            if link.has_attr('href')  and validators.url(link['href']) :
+            if link.has_attr('href')  and validators.url(link['href']) and "https://www.bjpenn.com/mma-news/" in link['href']:
                 dirty_links.append(link['href'])
 
         return dirty_links
 
-    #need to fix infinite loop, i think the condition applies to each function call and it doesnt check the 'super' link_list
-    def recurse_get_dirty_links(self,soup_obj):
-        
-        link_list = []
+   
+    #recurse until terminate conditions are true, implemented with tail recursion (may need to modify server to expand stack limitation in python)
+    def recurse_get_dirty_links(self,soup_obj,link_list):
+        def terminate_check():
+            return len(link_list) > 200
+
         dirty_links = self.get_dirty_links(soup_obj)
-        if len(dirty_links) == 0 or len(link_list) > 200:
-            return list
-
-        link_list.append(dirty_links)
+        
+        link_list.append(tuple(dirty_links))
         for link in dirty_links:
-            link_list.append(self.recurse_get_dirty_links(self.get_seed(link)))
+            if terminate_check():
+                return link_list
 
+            self.recurse_get_dirty_links(self.get_seed(link),link_list)
 
-        return link_list
+    #remove duplicates and possibly pre process further later on if needed
+    def filter_links(self, dirty_link_list):
+         no_duplicates = list(dict.fromkeys(tuple(dirty_link_list)))
+         return no_duplicates
 
+    #Next step.
+    def get_text_from_link(self, link):
+        True
+
+  
     def __init__(self):
         
-
          seed = self.get_seed("https://www.bjpenn.com/mma-news/")
-         links = self.recurse_get_dirty_links(seed)
-         print(links)
-        
+         link_list = self.recurse_get_dirty_links(seed,[])
+         filtered_link_list = self.filter_links(link_list)
+         print(filtered_link_list)
+       
 
 def main():
    bjp = bjpenn_crawler()
