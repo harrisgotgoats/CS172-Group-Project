@@ -122,10 +122,12 @@ class bjpenn_crawler:
 
     #filters out pages that have no text on them
     def filter_jsons(self,dirty_jsons):
+        
         for i in range( len(dirty_jsons) ):
-            for key,value in dirty_jsons[i]:
-                if key == "text" and value == "":
-                    del dirty_jsons[i]
+            loaded_json = json.loads(dirty_jsons[i])
+            if loaded_json['text'] == '':
+                del dirty_jsons[i]
+
         return dirty_jsons
         
 
