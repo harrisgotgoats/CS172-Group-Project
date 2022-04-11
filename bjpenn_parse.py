@@ -1,4 +1,5 @@
 import json
+import os
 from bs4 import BeautifulSoup
 import requests
 import validators
@@ -135,6 +136,10 @@ def bjpenn_crawler():
 
         return dirty_jsons
         
+    def store_jsons(filtered_jsons):
+        with open('Data.json', 'w') as jfile:
+            jfile.write(json.dumps(filtered_jsons, indent=4, separators=(',\n', ': ')))
+
 
   
     seed_url = "https://www.bjpenn.com/mma-news/"
@@ -144,7 +149,7 @@ def bjpenn_crawler():
     entries = get_entries(filtered_link_list)
     json_objects = get_jsons(entries)
     filtered_jsons = filter_jsons(json_objects)
-    print(filtered_jsons)
+    store_jsons(filtered_jsons)
        
 
 def main():
