@@ -122,7 +122,7 @@ def bjpenn_crawler():
       
 
         for entry in entries:
-            json_list.append(json.dumps(entry.__dict__))
+            json_list.append(json.dumps(entry.__dict__, indent=4, separators=(',\n', ': ')))
 
         return json_list
 
@@ -137,8 +137,23 @@ def bjpenn_crawler():
         return dirty_jsons
         
     def store_jsons(filtered_jsons):
+        if len(filtered_jsons) == 0:
+            print('filetered_jsons IS EMPTY')
+            return
+
+        big_json = "[\n"
+
+        for i in range(len(filtered_jsons)):
+
+            big_json += '\t' + filtered_jsons[i]
+
+            if i < len(filtered_jsons) - 1:
+                big_json += ','
+
+        big_json += "\n]"
+
         with open('Data.json', 'w') as jfile:
-            jfile.write(json.dumps(filtered_jsons, indent=4, separators=(',\n', ': ')))
+            jfile.write(big_json)
 
 
   
