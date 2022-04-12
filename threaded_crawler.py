@@ -1,11 +1,8 @@
 import json
-from time import sleep
-from unittest import result
 from bs4 import BeautifulSoup
 import requests
 import validators
 from validators import ValidationFailure
-from tail_call_optimized import *
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
@@ -56,13 +53,16 @@ class Crawler:
         
         return dirty_links
 
+                  
+    def getCurrentLinkSet(self):
+        return self.main_url_set.copy()
+
     def start(self, threads = 10):
         with ThreadPoolExecutor(threads) as executor:
             futures = []
             main_seed_soup = self.get_seed(self.main_seed)
             
-            @tail_call_optimized
-            def recursive_crawl(soup, url_acc, scan_depth):
+            def async_recursive_crawl(soup, url_acc, scan_depth):
                 # get only the unique links in the page
                 unique_links = self.get_dirty_links(soup).difference(url_acc)
 
@@ -73,34 +73,65 @@ class Crawler:
                 if(scan_depth >= self.scan_depth_limit): 
                     return url_acc
 
-                i = 0
                 for link in unique_links:
-                    i += 1
-                    print(f"Crawling link [ SD : {scan_depth} | P : {i} ]")
-                    futures.append(executor.submit(recursive_crawl, self.get_seed(link), url_acc, scan_depth + 1))
+                    futures.append(executor.submit(async_recursive_crawl, self.get_seed(link), url_acc, scan_depth + 1))
 
                 #After making threads crawl the unique links return the unique links found on this page
                 return url_acc
 
-            futures.append(executor.submit(recursive_crawl, main_seed_soup, set(), 0))
+            futures.append(executor.submit(async_recursive_crawl, main_seed_soup, set(), 0))
 
             for future in as_completed(futures):
                 self.main_url_set |= future.result()
 
-        
-            
-    
-    def getCurrentLinkSet(self):
-        return self.main_url_set.copy()
-        
-        
+    def get_data_from_link(self, link):
+        text = ""
+        seed = self.get_seed(link)
 
+        if seed == None:
+            return ""
+        
+        p_tags = seed.findAll('p')
+        try:
+            for p_tag in p_tags:
+                text += p_tag.getText()
+        except(...):
+            True
+
+        return ({
+            'title': seed.title.text,
+            'url' : link,
+            'text': ''.join(s for s in text if ord(s)>31 and ord(s)<126)
+        })
+
+    def generate_and_store_jsons(self, threads):       
+        data_list = [] 
+
+        executor = ThreadPoolExecutor(threads)
+        data_futures = [executor.submit(self.get_data_from_link, url) for url in self.main_url_set]  
+
+        for future in as_completed(data_futures):
+            data_list.append(future.result())
+
+        with open('Data.json', 'w') as jfile:
+            jfile.write(json.dumps(data_list, indent=4, separators=(',\n', ': ')))
+            
+
+        
+        
 
 
 
 if __name__ == "__main__":
     seed = "https://www.bjpenn.com/mma-news/ufc/jairzinho-rozenstruik-warns-marcin-tybura-of-his-power-ahead-of-ufc-273-as-soon-as-i-start-touching-people-they-have-big-problems/"
-    depth_limit = 10 
+    depth_limit = 2
+    crawler_threads = 15
+    json_threads = 15
     spider = Crawler(seed, depth_limit)
-    spider.start(100)
-    print(f"Total links found: {len(spider.getCurrentLinkSet())}")
+    
+    print(f"Crawler started\n\tDepth limit: {depth_limit}\n\tThreads used: {crawler_threads}")
+    spider.start(crawler_threads)
+    print(f"Crawling completed.\n\tLinks collected: {len(spider.getCurrentLinkSet())}")
+    print(f"Saving information to Data.json...\n\tThreads used: {json_threads}")
+    spider.generate_and_store_jsons(json_threads)
+    print(f"All data saved to Data.json")
