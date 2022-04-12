@@ -5,17 +5,18 @@ import validators
 from validators import ValidationFailure
 from tail_call_optimized import *
 
+
 #How the JSON will be represented.
 class entry:
     link = ""
-    text = ""
+    html_text = ""
 
-    def __init__(self,l,t) :
+    def __init__(self,l,h) :
         self.link = l 
-        self.text = t 
+        self.html_text  = h
 
     def __str__(self):
-        return self.link + ':' + self.text
+        return self.link + self.html_text
 
 def bjpenn_crawler():
 
@@ -23,6 +24,7 @@ def bjpenn_crawler():
         try:
             result = validators.url(link)
         except Exception as e:
+            print(e)
             return False
 
         if isinstance(result, ValidationFailure):
@@ -44,12 +46,12 @@ def bjpenn_crawler():
     #gets all links on a page. grabs anythin with an <a href tag so some are garbage (like '#')
 
     def get_dirty_links(soup_obj):
-        if soup_obj == None:
+        if not soup_obj:
             return []
 
         dirty_links = []
         unparsed_links = soup_obj.findAll('a')
-        if unparsed_links == None:
+        if not unparsed_links:
             return []
 
         for link in unparsed_links:
@@ -65,35 +67,39 @@ def bjpenn_crawler():
    
     #recurse until terminate conditions are true, implemented with tail recursion (may need to modify server to expand stack limitation in python)
     @tail_call_optimized
-    def recurse_get_dirty_links(soup_obj,link_list):
+    def recurse_get_dirty_links(soup_obj,link_dict):
         def terminate_check():
-            return (len(link_list) > 1)
+            return (len(link_dict) > 1)
 
         dirty_links = get_dirty_links(soup_obj)
         if dirty_links != []:
-            link_list = link_list + dirty_links
+            for link in dirty_links:
+                if link not in link_dict:
+                    link_dict[link] = link
 
         for link in dirty_links:
             if terminate_check():
-                return link_list
+                
+                return list(link_dict.values())
 
-            recurse_get_dirty_links(get_seed(link),link_list)
+            recurse_get_dirty_links(get_seed(link),link_dict)
 
 
     #remove duplicates and possibly pre process further later on if needed
     def filter_links(dirty_link_list):
+
          if dirty_link_list == None:
              return []
         
 
-         return set(dirty_link_list)
+         return dirty_link_list
 
     #Parses the text on the page by searching between <p> tags. Returns one single string with all the text.
     def get_text_from_link(link):
         text = ""
         seed = get_seed(link)
     
-        if seed == None:
+        if not seed:
             return ""
         
         p_tags = seed.findAll('p')
@@ -105,11 +111,20 @@ def bjpenn_crawler():
 
         return (''.join(s for s in text if ord(s)>31 and ord(s)<126))
   
+    def get_web_page(link):
+        try:
+            req = requests.get(link)
+        except requests.exceptions.InvalidSchema as i:
+            print(i)
+            return ""
+
+        return req.text
+
     #creates the objects that the I will then convert to JSON objects
     def get_entries(clean_link_list):
         entries = []
         for clean_link in clean_link_list:
-            new_entry = entry(clean_link, get_text_from_link(clean_link))
+            new_entry = entry(clean_link, get_web_page(clean_link))
             entries.append(new_entry)
 
         return entries
@@ -121,17 +136,19 @@ def bjpenn_crawler():
       
 
         for entry in entries:
-            json_list.append(json.dumps(entry.__dict__, indent=4, separators=(',\n', ': ')))
+            json_list.append(json.dumps(entry.__dict__))
 
         return json_list
 
     #filters out pages that have no text on them
     def filter_jsons(dirty_jsons):
-        
+        """
+        #Not needed for html file.
         for i in range( len(dirty_jsons) ):
             loaded_json = json.loads(dirty_jsons[i])
             if loaded_json['text'] == '':
-                del dirty_jsons[i]
+                del dirty_jsons[i]"""
+        
 
         return dirty_jsons
         
@@ -157,14 +174,14 @@ def bjpenn_crawler():
 
   
     seed_url = "https://www.bjpenn.com/mma-news/"
-    seed = get_seed(link=seed_url)
-    link_list = recurse_get_dirty_links(seed,[])
+    seed = get_seed(seed_url)
+    link_list = recurse_get_dirty_links(seed,{})
     filtered_link_list = filter_links(link_list)
     print(len(filtered_link_list))
     entries = get_entries(filtered_link_list)
     json_objects = get_jsons(entries)
     filtered_jsons = filter_jsons(json_objects)
-    store_jsons(filtered_jsons)
+    print(entries[0])
        
 
 def main():
