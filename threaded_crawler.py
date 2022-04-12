@@ -36,7 +36,16 @@ class Crawler:
         else:
             return None
 
-    
+  
+    def get_web_page(self,link):
+        try:
+            req = requests.get(link)
+        except requests.exceptions.InvalidSchema as i:
+            #print(i)
+            return ""
+
+        return req.text
+
     #gets all links on a page. grabs anythin with an <a href tag so some are garbage (like '#')
     def get_dirty_links(self, soup_obj):
         if soup_obj == None:
@@ -80,12 +89,12 @@ class Crawler:
 
             total = len(futures)
             current = 0
-            print(f"Pages found: {total}")
+            #print(f"Pages found: {total}")
             for future in as_completed(futures):
                 current += 1
-                print(f"Pages crawled so far: {current} / {total}", end = "\r")
+                #print(f"Pages crawled so far: {current} / {total}", end = "\r")
                 self.main_url_set |= future.result()
-            print('\n')
+            #print('\n')
 
     def get_data_from_link(self, link):
         text = ""
@@ -94,12 +103,7 @@ class Crawler:
         if seed == None:
             return ""
         
-        p_tags = seed.findAll('p')
-        try:
-            for p_tag in p_tags:
-                text += p_tag.getText()
-        except(...):
-            True
+        text = self.get_web_page(link)
 
         return ({
             'title': seed.title.text,
@@ -117,12 +121,11 @@ class Crawler:
 
         for future in as_completed(data_futures):
             i += 1
-            print(f"Converting to json: {i} / {total}", end='\r')
+            #print(f"Converting to json: {i} / {total}", end='\r')
             data_list.append(future.result())
-        print("\n")
+        #print("\n")
 
-        with open('Data.json', 'w') as jfile:
-            jfile.write(json.dumps(data_list, indent=4, separators=(',\n', ': ')))
+        print(json.dumps(data_list, indent=4, separators=(',\n', ': ')))
             
 
         
@@ -133,26 +136,20 @@ class Crawler:
 if __name__ == "__main__":
     seed = "https://www.bjpenn.com/mma-news/ufc/jairzinho-rozenstruik-warns-marcin-tybura-of-his-power-ahead-of-ufc-273-as-soon-as-i-start-touching-people-they-have-big-problems/"
 
-    other_seed = str(input(f"Current seed: {seed}\n If you would like a different seed enter here (Leave empty to continue)\nseed: "))
-    depth_limit = int(input("Enter the depth limit: "))
-    crawler_threads = int(input("Enter Crawler threads: "))
-    json_threads = int(input("Enter json threads: "))
-
-    if other_seed != "":
-        seed = other_seed
-    
-    if depth_limit == "":
-        depth_limit = 1
+    other_seed = seed
+    depth_limit = 100
+    crawler_threads = 100
+    json_threads = 1
 
     spider = Crawler(seed, depth_limit)
     
-    print(f"Crawler started\n\tDepth limit: {depth_limit}\n\tThreads used: {crawler_threads}\n...")
+    #print(f"Crawler started\n\tDepth limit: {depth_limit}\n\tThreads used: {crawler_threads}\n...")
 
     spider.start(crawler_threads)
 
-    print(f"Crawling completed.\n\tLinks collected: {len(spider.getCurrentLinkSet())}")
-    print(f"Saving information to Data.json\n\tThreads used: {json_threads}\n...")
+    #print(f"Crawling completed.\n\tLinks collected: {len(spider.getCurrentLinkSet())}")
+    #print(f"Saving information to Data.json\n\tThreads used: {json_threads}\n...")
 
     spider.generate_and_store_jsons(json_threads)
 
-    print(f"All data saved to Data.json\n\tTotal data : {round(os.path.getsize('./Data.json') / 1024**2, 3)} MB")
+    #print(f"All data saved to Data.json\n\tTotal data : {round(os.path.getsize('./Data.json') / 1024**2, 3)} MB")
