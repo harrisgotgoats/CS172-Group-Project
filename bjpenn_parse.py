@@ -1,5 +1,4 @@
 import json
-import os
 from bs4 import BeautifulSoup
 import requests
 import validators
@@ -161,6 +160,7 @@ def bjpenn_crawler():
     seed = get_seed(link=seed_url)
     link_list = recurse_get_dirty_links(seed,[])
     filtered_link_list = filter_links(link_list)
+    print(len(filtered_link_list))
     entries = get_entries(filtered_link_list)
     json_objects = get_jsons(entries)
     filtered_jsons = filter_jsons(json_objects)
