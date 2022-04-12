@@ -132,9 +132,18 @@ class Crawler:
 
 if __name__ == "__main__":
     seed = "https://www.bjpenn.com/mma-news/ufc/jairzinho-rozenstruik-warns-marcin-tybura-of-his-power-ahead-of-ufc-273-as-soon-as-i-start-touching-people-they-have-big-problems/"
-    depth_limit = 2
-    crawler_threads = 25
-    json_threads = 30
+
+    other_seed = str(input(f"Current seed: {seed}\n If you would like a different seed enter here (Leave empty to continue)\nseed: "))
+    depth_limit = int(input("Enter the depth limit: "))
+    crawler_threads = int(input("Enter Crawler threads: "))
+    json_threads = int(input("Enter json threads: "))
+
+    if other_seed != "":
+        seed = other_seed
+    
+    if depth_limit == "":
+        depth_limit = 1
+
     spider = Crawler(seed, depth_limit)
     
     print(f"Crawler started\n\tDepth limit: {depth_limit}\n\tThreads used: {crawler_threads}\n...")
