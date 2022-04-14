@@ -13,8 +13,6 @@ class Crawler:
         self.main_seed = seed
         self.main_url_set = set()
         self.scan_depth_limit = scan_depth_limit
-        self.depth_counter = 0;
-        self.page_counter = 0;
 
     def check_link(self, link):
         try:
@@ -63,29 +61,26 @@ class Crawler:
         with ThreadPoolExecutor(threads) as executor:
             futures = []
             main_seed_soup = self.get_seed(self.main_seed)
-            
+
+            # the url accumulator is only to keep track of the links seen so far
             def async_recursive_crawl(soup, url_acc, scan_depth):
-                if(scan_depth >= self.scan_depth_limit): return url_acc
-
-                # get only the unique links in the page
                 unique_links = self.get_dirty_links(soup).difference(url_acc)
+                url_acc |= unique_links;
 
-                url_acc |= unique_links
+                if(scan_depth >= self.scan_depth_limit):
+                    return unique_links
+
                 for link in unique_links:
                     futures.append(executor.submit(async_recursive_crawl, self.get_seed(link), url_acc, scan_depth + 1))
+                return unique_links
 
-                return url_acc
+            self.main_url_set |= async_recursive_crawl(main_seed_soup, set(), 0)
 
-            async_recursive_crawl(main_seed_soup, set(), 0)
-
-            total = len(futures)
-            current = 0
-            print(f"Pages found: {total}")
             for future in as_completed(futures):
-                current += 1
-                print(f"Pages crawled so far: {current} / {total}", end = "\r")
                 self.main_url_set |= future.result()
-            print('\n')
+                print(f"Unique URLs found so far: {len(self.main_url_set)}", end="\r")
+
+        print("\n")
 
     def get_data_from_link(self, link):
         text = ""
