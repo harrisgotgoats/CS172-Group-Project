@@ -1,13 +1,9 @@
-from audioop import getsample
-from distutils.dep_util import newer
-from fileinput import filename
 import json
-from bs4 import BeautifulSoup
 import requests
 import validators
+from bs4 import BeautifulSoup
 from validators import ValidationFailure
 from tail_call_optimized import *
-import sys
 
 
 #How the JSON will be represented.
