@@ -1,153 +1,68 @@
-import json
-import os
-from bs4 import BeautifulSoup
 import requests
-import validators
-from validators import ValidationFailure
-from concurrent.futures import ThreadPoolExecutor, as_completed
+import json
+import concurrent.futures
+import threading
+from bs4 import BeautifulSoup as bsf
+import time
+import os
+
+thread_local = threading.local()
+
+def get_session():
+    if not hasattr(thread_local, 'session'):
+        thread_local.session = requests.Session()
+    return thread_local.session
 
 
-class Crawler:        
-    
-    def __init__(self, seed, scan_depth_limit):
-        self.main_seed = seed
-        self.main_url_set = set()
-        self.scan_depth_limit = scan_depth_limit
-
-    def check_link(self, link):
-        try:
-            result = validators.url(link)
-        except Exception as e:
-            return False
-
-        if isinstance(result, ValidationFailure):
-            return False
-
-        return True
-    
-
-    def get_seed(self, link):
-        if self.check_link(link):
-            r = requests.get(link)
-            soup = BeautifulSoup(r.text, 'html.parser')
-            return soup
-        else:
-            return None
-
-    
-    #gets all links on a page. grabs anythin with an <a href tag so some are garbage (like '#')
-    def get_dirty_links(self, soup_obj):
-        if soup_obj == None:
-            return set()
-
-        dirty_links = set()
-        unparsed_links = soup_obj.findAll('a')
-        if unparsed_links == None:
-            return set()
-
-        for link in unparsed_links:
-            if link.has_attr('href'):
-                new_dirty_link = link['href']
-                if "https://www.bjpenn.com/mma-news/" in new_dirty_link:
-                    dirty_links.add(new_dirty_link) 
-        
-        return dirty_links
-
-                  
-    def getCurrentLinkSet(self):
-        return self.main_url_set.copy()
-
-    def start(self, threads = 10):
-        with ThreadPoolExecutor(threads) as executor:
-            futures = []
-            main_seed_soup = self.get_seed(self.main_seed)
-
-            # the url accumulator is only to keep track of the links seen so far
-            def async_recursive_crawl(soup, url_acc, scan_depth):
-                unique_links = self.get_dirty_links(soup).difference(url_acc)
-                url_acc |= unique_links;
-
-                if(scan_depth >= self.scan_depth_limit):
-                    return unique_links
-
-                for link in unique_links:
-                    futures.append(executor.submit(async_recursive_crawl, self.get_seed(link), url_acc, scan_depth + 1))
-                return unique_links
-
-            self.main_url_set |= async_recursive_crawl(main_seed_soup, set(), 0)
-
-            for future in as_completed(futures):
-                self.main_url_set |= future.result()
-                print(f"Unique URLs found so far: {len(self.main_url_set)}", end="\r")
-
-        print("\n")
-
-    def get_data_from_link(self, link):
-        text = ""
-        seed = self.get_seed(link)
-
-        if seed == None:
-            return ""
-        
-        p_tags = seed.findAll('p')
-        try:
-            for p_tag in p_tags:
-                text += p_tag.getText()
-        except(...):
-            True
-
-        return ({
-            'title': seed.title.text,
-            'url' : link,
-            'text': ''.join(s for s in text if ord(s)>31 and ord(s)<126)
-        })
-
-    def generate_and_store_jsons(self, threads):       
-        data_list = [] 
-        total = len(self.main_url_set)
-        i = 0
-
-        executor = ThreadPoolExecutor(threads)
-        data_futures = [executor.submit(self.get_data_from_link, url) for url in self.main_url_set]  
-
-        for future in as_completed(data_futures):
-            i += 1
-            print(f"Converting to json: {i} / {total}", end='\r')
-            data_list.append(future.result())
-        print("\n")
-
-        with open('Data.json', 'w') as jfile:
-            jfile.write(json.dumps(data_list, indent=4, separators=(',\n', ': ')))
-            
-
-        
-        
-
-
+def scrape_link(seed): # returns the links and data from this seed_link
+    session = get_session()
+    with session.get(seed) as response:
+        soup = bsf(response.text, 'html.parser')
+        links = [l['href'] for l in soup.find_all('a') if (l.has_attr('href') and "https://www.bjpenn.com/mma-news" in l['href'])]
+        data = {
+            'title': soup.title.text,
+            'url': seed,
+            'content': ''.join([p.text.strip() for p in soup.find_all('p')])
+        }
+        return links, data
 
 if __name__ == "__main__":
-    seed = "https://www.bjpenn.com/mma-news/ufc/jairzinho-rozenstruik-warns-marcin-tybura-of-his-power-ahead-of-ufc-273-as-soon-as-i-start-touching-people-they-have-big-problems/"
+    urls = [
+        "https://www.bjpenn.com/mma-news/ufc/jairzinho-rozenstruik-warns-marcin-tybura-of-his-power-ahead-of-ufc-273-as-soon-as-i-start-touching-people-they-have-big-problems/",
+    ]
+    data_found = []
+    futures = []
+    max_links = 1000
+    batch_factor = 10
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        start = time.time()
+        for i in range(max_links):
+            if i >= len(urls):
+                print("Could not find more links")
+                break
+            if(len(data_found) >= max_links): break
+            if(len(urls) - i > batch_factor):
+                for j in range(batch_factor):
+                    futures.append(executor.submit(scrape_link, urls[i]))
+                    i += 1
+            else: 
+                futures.append(executor.submit(scrape_link, urls[i]))
 
-    other_seed = str(input(f"Current seed: {seed}\n If you would like a different seed enter here (Leave empty to continue)\nseed: "))
-    depth_limit = int(input("Enter the depth limit: "))
-    crawler_threads = int(input("Enter Crawler threads: "))
-    json_threads = int(input("Enter json threads: "))
-
-    if other_seed != "":
-        seed = other_seed
-    
-    if depth_limit == "":
-        depth_limit = 1
-
-    spider = Crawler(seed, depth_limit)
-    
-    print(f"Crawler started\n\tDepth limit: {depth_limit}\n\tThreads used: {crawler_threads}\n...")
-
-    spider.start(crawler_threads)
-
-    print(f"Crawling completed.\n\tLinks collected: {len(spider.getCurrentLinkSet())}")
-    print(f"Saving information to Data.json\n\tThreads used: {json_threads}\n...")
-
-    spider.generate_and_store_jsons(json_threads)
-
-    print(f"All data saved to Data.json\n\tTotal data : {round(os.path.getsize('./Data.json') / 1024**2, 3)} MB")
+            for future in concurrent.futures.as_completed(futures):
+                links, data = future.result()
+                data_found.append(data)
+                for l in links:
+                    if l not in urls:
+                        if(len(data_found) >= max_links): break
+                        urls.append(l)
+                if(len(data_found) >= max_links): break
+                print(f"Pages crawled: {len(data_found)}", end="\r")
+            futures = []
+        
+            
+        print('\n')
+        with open('Data.json', 'w') as jfile:
+            json.dump(data_found, jfile, indent=4)
+        print(f"Crawling completed in: {round(time.time() - start, 3)} seconds")
+        size = os.path.getsize("./Data.json") / 1024**2
+        print(f"Total data collected: {round(size, 2)} MB")
