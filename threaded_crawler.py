@@ -6,7 +6,7 @@ from bs4 import BeautifulSoup as bsf
 import time
 import datetime
 import os
-import math
+import sys
 
 
 thread_local = threading.local()
@@ -21,20 +21,38 @@ def get_session():
 
 def scrape_link(seed): # returns the links and data from this seed_link
     #gets the local session 
-    session = get_session()
-    with session.get(seed) as response:
-        #get the soup object
-        soup = bsf(response.text, 'html.parser')
-        #Get all the links -- May need to implement better checks
-        links = [l['href'] for l in soup.find_all('a') if (l.has_attr('href') and "https://www.bjpenn.com/mma-news" in l['href'])]
-        #data of the page - currently getting all the text from the page
-        data = {
-            'title': soup.title.text,
-            'url': seed,
-            'content': soup.text.strip()
-        }
-        return links, data
+    try:
+        session = get_session()
+        with session.get(seed) as response:
+            #get the soup object
+            soup = bsf(response.text, 'html.parser')
+            #Get all the links -- May need to implement better checks
+            links = [l['href'] for l in soup.find_all('a') if (l.has_attr('href') and "https://www.bjpenn.com/mma-news" in l['href'])]
+            
+            content = soup.find('body')
+            for data in content(['style', 'script']):
+                data.decompose()
+            #data of the page - currently getting all the text from the page
+            data = {
+                'title': soup.title.text,
+                'url': seed,
+                'content': ''.join(content.stripped_strings)
+            }
+            return links, data
+    except:
+        print("\n")
+        print("Exception Occurred")
+        return []
 
+
+
+'''
+    The command line arguments are as follows:
+    [1] = max_links (an integer specifying how many pages to scrape)
+    [2] = batch_factor (an integer specifying how many pages to queue to threads on each iteration)
+    [3] = max_threads (an integer specifying max number of threads to use for the ThreadPoolExecutor < batch_factor for better perfomance)
+    [4] = (NOT IMPLEMENTED YET) filename (name of file containing seed links)
+'''
 if __name__ == "__main__":
     #List of starting urls - If new links added make sure to add the required checks and constraints
     urls = [
@@ -43,11 +61,11 @@ if __name__ == "__main__":
     # stores the data objects from each page
     data_found = []
 
-    max_links = 100000
+    max_links = int(sys.argv[1])
     #How many pages are processed per iteration
-    batch_factor = 100
+    batch_factor = int(sys.argv[2])
     #Number of threads to use
-    max_threads = math.floor(batch_factor / 2)
+    max_threads = int(sys.argv[3])
     with concurrent.futures.ThreadPoolExecutor(max_threads) as executor:
         # list of futures (threads that have not returned yet)
         futures = []
@@ -70,7 +88,10 @@ if __name__ == "__main__":
 
             # Save the unique links returned by each thread and save their text data
             for future in concurrent.futures.as_completed(futures):
-                links, data = future.result()
+                res = future.result()
+                if res == []:
+                    continue
+                links, data = res
                 data_found.append(data)
                 for l in links:
                     if l not in urls:
@@ -85,7 +106,9 @@ if __name__ == "__main__":
         print('\n')
         with open('Data.json', 'w') as jfile:
             json.dump(data_found, jfile, indent=4)
-        duration = time.time() - start
-        print(f"Crawling completed in: {datetime.timedelta(seconds=duration)} seconds")
+        duration = datetime.timedelta(seconds=(time.time() - start))
+        duration = str(duration).split('.')[0]
+        duration = duration.split(':')
+        print(f"Crawling completed in: {duration[0]} hrs: {duration[1]} mins : {duration[2]} secs")
         size = os.path.getsize("./Data.json") / 1000**2
         print(f"Total data collected: {round(size, 2)} MB")
