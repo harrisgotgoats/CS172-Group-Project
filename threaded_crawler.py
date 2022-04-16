@@ -36,7 +36,7 @@ def scrape_link(seed): # returns the links and data from this seed_link
             data = {
                 'title': soup.title.text,
                 'url': seed,
-                'content': ''.join(content.stripped_strings)
+                'content': ' '.join(content.stripped_strings)
             }
             return links, data
     except:
