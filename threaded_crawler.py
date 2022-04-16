@@ -23,16 +23,19 @@ def scrape_link(seed): # returns the links and data from this seed_link
     #gets the local session 
     session = get_session()
     with session.get(seed) as response:
-        #get the soup object
-        soup = bsf(response.text, 'html.parser')
-        #Get all the links -- May need to implement better checks
-        links = [l['href'] for l in soup.find_all('a') if (l.has_attr('href') and "https://www.bjpenn.com/mma-news" in l['href'])]
-        #data of the page - currently getting all the text from the page
-        data = {
-            'title': soup.title.text,
-            'url': seed,
-            'content': soup.text.strip()
-        }
+        #get the soup objec
+        try:
+            soup = bsf(response.text, 'html.parser')
+            #Get all the links -- May need to implement better checks
+            links = [l['href'] for l in soup.find_all('a') if (l.has_attr('href') and "https://www.bjpenn.com/mma-news" in l['href'])]
+            #data of the page - currently getting all the text from the page
+            data = {
+                'title': soup.title.text,
+                'url': seed,
+                'content': soup.text.strip()
+             }
+        except:
+            return None,None
         return links, data
 
 if __name__ == "__main__":
@@ -43,9 +46,9 @@ if __name__ == "__main__":
     # stores the data objects from each page
     data_found = []
 
-    max_links = 100000
+    max_links = 250000
     #How many pages are processed per iteration
-    batch_factor = 100
+    batch_factor = 80
     #Number of threads to use
     max_threads = math.floor(batch_factor / 2)
     with concurrent.futures.ThreadPoolExecutor(max_threads) as executor:
@@ -71,6 +74,8 @@ if __name__ == "__main__":
             # Save the unique links returned by each thread and save their text data
             for future in concurrent.futures.as_completed(futures):
                 links, data = future.result()
+                if not links:
+                    continue
                 data_found.append(data)
                 for l in links:
                     if l not in urls:
