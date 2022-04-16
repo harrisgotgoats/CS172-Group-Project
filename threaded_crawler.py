@@ -110,5 +110,6 @@ if __name__ == "__main__":
         duration = str(duration).split('.')[0]
         duration = duration.split(':')
         print(f"Crawling completed in: {duration[0]} hrs: {duration[1]} mins : {duration[2]} secs")
+        print("Data saved on Data.json")
         size = os.path.getsize("./Data.json") / 1000**2
         print(f"Total data collected: {round(size, 2)} MB")
