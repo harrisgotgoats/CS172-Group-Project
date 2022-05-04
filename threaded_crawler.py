@@ -1,3 +1,4 @@
+from logging import exception
 import requests
 import json
 import concurrent.futures
@@ -41,7 +42,7 @@ def scrape_link(seed): # returns the links and data from this seed_link
             return links, data
     except:
         print("\n")
-        print("Exception Occurred")
+        print("Exception Occurred\n")
         return []
 
 
