@@ -24,7 +24,7 @@ def scrape_link(seed): # returns the links and data from this seed_link
     #gets the local session 
     try:
         session = get_session()
-        with session.get(seed) as response:
+        with session.get(seed, timeout=5) as response:
             #get the soup object
             soup = bsf(response.text, 'html.parser')
             #Get all the links -- May need to implement better checks
@@ -40,9 +40,12 @@ def scrape_link(seed): # returns the links and data from this seed_link
                 'content': ' '.join(content.stripped_strings)
             }
             return links, data
+    except Timeout:
+        print("\nEXCEPTION: Timeout occurred\n")
+        return []
+
     except:
-        print("\n")
-        print("Exception Occurred\n")
+        print("\nException Occurred\n")
         return []
 
 
@@ -52,13 +55,22 @@ def scrape_link(seed): # returns the links and data from this seed_link
     [1] = max_links (an integer specifying how many pages to scrape)
     [2] = batch_factor (an integer specifying how many pages to queue to threads on each iteration)
     [3] = max_threads (an integer specifying max number of threads to use for the ThreadPoolExecutor < batch_factor for better perfomance)
-    [4] = (NOT IMPLEMENTED YET) filename (name of file containing seed links)
+    [4] = filename (name of file containing seed links) | Leave empty to use the default
 '''
 if __name__ == "__main__":
     #List of starting urls - If new links added make sure to add the required checks and constraints
-    urls = [
-        "https://www.bjpenn.com/mma-news/ufc/jairzinho-rozenstruik-warns-marcin-tybura-of-his-power-ahead-of-ufc-273-as-soon-as-i-start-touching-people-they-have-big-problems/",
-    ]
+    default_url = "https://www.bjpenn.com/mma-news/ufc/jairzinho-rozenstruik-warns-marcin-tybura-of-his-power-ahead-of-ufc-273-as-soon-as-i-start-touching-people-they-have-big-problems/"
+    urls = []
+    if len(sys.argv) == 5 and len(sys.argv[4]) > 0:
+        if not os.path.exists(sys.argv[4]):
+            print(f"ERROR: filename \"{sys.argv[4]}\" does not exist.")
+            exit(1)
+        with open(sys.argv[4], "r") as f:
+            for url in f:
+                urls.append(url)
+    else:
+        urls.append(default_url)
+
     # stores the data objects from each page
     data_found = []
 
@@ -99,7 +111,7 @@ if __name__ == "__main__":
                         if(len(data_found) >= max_links): break
                         urls.append(l)
                 if(len(data_found) >= max_links): break
-                print(f"Pages crawled: {len(data_found)} / {max_links}", end="\r")
+                print(f"Pages crawled: {len(data_found) + 1} / {max_links}", end="\r")
             # empties the futures list so that the next batch can be processed
             futures = []
         
