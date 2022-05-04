@@ -30,7 +30,7 @@ def scrape_link(seed): # returns the links and data from this seed_link
 
         session.mount('http://', HTTPAdapter(max_retries=retries))
 
-        with session.get(seed, timeout=3) as response:
+        with session.get(seed, timeout=5) as response:
             #get the soup object
             soup = bsf(response.text, 'html.parser')
             #Get all the links -- May need to implement better checks
@@ -47,7 +47,7 @@ def scrape_link(seed): # returns the links and data from this seed_link
                 content = " ".join(p.text.strip() for p in content.find_all("p"))
             else:
                 content = " ".join(p.text.strip() for p in soup.find_all("p"))
-                
+
             #data of the page - currently getting all the text from the page
             data = {
                 'title': title,
@@ -56,11 +56,9 @@ def scrape_link(seed): # returns the links and data from this seed_link
             }
             return links, data
     except requests.exceptions.Timeout:
-        print("\nEXCEPTION: Timeout occurred\n")
         return None
 
     except:
-        print("\nException Occurred\n")
         return None
 
 
@@ -68,21 +66,20 @@ def scrape_link(seed): # returns the links and data from this seed_link
 '''
     The command line arguments are as follows:
     [1] = max_links (an integer specifying how many pages to scrape)
-    [2] = batch_factor (an integer specifying how many pages to queue to threads on each iteration)
     [3] = max_threads (an integer specifying max number of threads to use for the ThreadPoolExecutor < batch_factor for better perfomance)
     [4] = filename (name of file containing seed links) | Leave empty to use the default
 '''
 if __name__ == "__main__":
     #List of starting urls - If new links added make sure to add the required checks and constraints
-    default_url = "https://www.bjpenn.com/mma-news/ufc/jairzinho-rozenstruik-warns-marcin-tybura-of-his-power-ahead-of-ufc-273-as-soon-as-i-start-touching-people-they-have-big-problems/"
+    default_url = "https://www.bjpenn.com/mma-news/ufc/dana-white-shuts-down-potential-francis-ngannou-tyson-fury-fight-fking-waste-of-time-energy-and-money/"
     url_frontier = queue.Queue()
     explored_urls = set()
     # Handles the use of an external file for adding url seed links.
-    if len(sys.argv) == 5 and len(sys.argv[4]) > 0:
-        if not os.path.exists(sys.argv[4]):
-            print(f"ERROR: filename \"{sys.argv[4]}\" does not exist.")
+    if len(sys.argv) == 4 and len(sys.argv[3]) > 0:
+        if not os.path.exists(sys.argv[3]):
+            print(f"ERROR: filename \"{sys.argv[3]}\" does not exist.")
             exit(1)
-        with open(sys.argv[4], "r") as f:
+        with open(sys.argv[3], "r") as f:
             for url in f:
                 url_frontier.put(url)
     else:
@@ -92,10 +89,8 @@ if __name__ == "__main__":
     data_found = []
 
     max_links = int(sys.argv[1])
-    #How many pages are processed per iteration
-    batch_factor = int(sys.argv[2])
     #Number of threads to use
-    max_threads = int(sys.argv[3])
+    max_threads = int(sys.argv[2])
 
     with concurrent.futures.ThreadPoolExecutor(max_threads) as executor:
         # list of futures (threads that have not returned yet)
@@ -104,12 +99,9 @@ if __name__ == "__main__":
         while not url_frontier.empty() and len(data_found) < max_links:
             # If we have more than "batch_factor" urls scrape one more page. If there are more than "batch_factor" urls queue
             # queue a batch of "batch_factor" of pages to be crawled at the same time.
-            while(url_frontier.qsize() > batch_factor):
+            while(url_frontier.qsize() > 0):
                 if len(futures) + len(data_found) >= max_links: break
                 futures.append(executor.submit(scrape_link, url_frontier.get()))
-            else:
-                if len(futures) + len(data_found) < max_links:
-                    futures.append(executor.submit(scrape_link, url_frontier.get()))
 
             # Save the unique links returned by each thread and save their text data
             for future in concurrent.futures.as_completed(futures):
