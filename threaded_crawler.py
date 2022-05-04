@@ -1,13 +1,14 @@
-from logging import exception
 import requests
 import json
-import concurrent.futures
 import threading
+import concurrent.futures
 from bs4 import BeautifulSoup as bsf
 import time
 import datetime
 import os
 import sys
+import queue
+from requests.adapters import HTTPAdapter, Retry
 
 
 thread_local = threading.local()
@@ -24,29 +25,43 @@ def scrape_link(seed): # returns the links and data from this seed_link
     #gets the local session 
     try:
         session = get_session()
-        with session.get(seed, timeout=5) as response:
+
+        retries = Retry(total=5, backoff_factor=0.1, status_forcelist=[500,502,503,504])
+
+        session.mount('http://', HTTPAdapter(max_retries=retries))
+
+        with session.get(seed, timeout=3) as response:
             #get the soup object
             soup = bsf(response.text, 'html.parser')
             #Get all the links -- May need to implement better checks
             links = [l['href'] for l in soup.find_all('a') if (l.has_attr('href') and "https://www.bjpenn.com/mma-news" in l['href'])]
             
-            content = soup.find('body')
-            for data in content(['style', 'script']):
-                data.decompose()
+
+            title = soup.find("h1", attrs={"class" : "entry-title"})
+            if title:
+                title = title.text
+            else:
+                title = soup.title.text
+            content = soup.find("div", attrs={"class" : "td-post-content tagdiv-type"})
+            if content:
+                content = " ".join(p.text.strip() for p in content.find_all("p"))
+            else:
+                content = " ".join(p.text.strip() for p in soup.find_all("p"))
+                
             #data of the page - currently getting all the text from the page
             data = {
-                'title': soup.title.text,
+                'title': title,
                 'url': seed,
-                'content': ' '.join(content.stripped_strings)
+                'content': content
             }
             return links, data
-    except Timeout:
+    except requests.exceptions.Timeout:
         print("\nEXCEPTION: Timeout occurred\n")
-        return []
+        return None
 
     except:
         print("\nException Occurred\n")
-        return []
+        return None
 
 
 
@@ -60,16 +75,18 @@ def scrape_link(seed): # returns the links and data from this seed_link
 if __name__ == "__main__":
     #List of starting urls - If new links added make sure to add the required checks and constraints
     default_url = "https://www.bjpenn.com/mma-news/ufc/jairzinho-rozenstruik-warns-marcin-tybura-of-his-power-ahead-of-ufc-273-as-soon-as-i-start-touching-people-they-have-big-problems/"
-    urls = []
+    url_frontier = queue.Queue()
+    explored_urls = set()
+    # Handles the use of an external file for adding url seed links.
     if len(sys.argv) == 5 and len(sys.argv[4]) > 0:
         if not os.path.exists(sys.argv[4]):
             print(f"ERROR: filename \"{sys.argv[4]}\" does not exist.")
             exit(1)
         with open(sys.argv[4], "r") as f:
             for url in f:
-                urls.append(url)
+                url_frontier.put(url)
     else:
-        urls.append(default_url)
+        url_frontier.append(default_url)
 
     # stores the data objects from each page
     data_found = []
@@ -79,41 +96,43 @@ if __name__ == "__main__":
     batch_factor = int(sys.argv[2])
     #Number of threads to use
     max_threads = int(sys.argv[3])
+
     with concurrent.futures.ThreadPoolExecutor(max_threads) as executor:
         # list of futures (threads that have not returned yet)
         futures = []
         start = time.time()
-        for i in range(max_links):
-            if i >= len(urls):
-                print("Could not find more links")
-                break
-            #Crawled the number of pages requested
-            if(len(data_found) >= max_links): break
-
+        while not url_frontier.empty() and len(data_found) < max_links:
             # If we have more than "batch_factor" urls scrape one more page. If there are more than "batch_factor" urls queue
             # queue a batch of "batch_factor" of pages to be crawled at the same time.
-            if(len(urls) - i > batch_factor):
-                for j in range(batch_factor):
-                    futures.append(executor.submit(scrape_link, urls[i]))
-                    i += 1
-            else: 
-                futures.append(executor.submit(scrape_link, urls[i]))
+            while(url_frontier.qsize() > batch_factor):
+                if len(futures) + len(data_found) >= max_links: break
+                futures.append(executor.submit(scrape_link, url_frontier.get()))
+            else:
+                if len(futures) + len(data_found) < max_links:
+                    futures.append(executor.submit(scrape_link, url_frontier.get()))
 
             # Save the unique links returned by each thread and save their text data
             for future in concurrent.futures.as_completed(futures):
                 res = future.result()
-                if res == []:
+                if res == None:
                     continue
                 links, data = res
                 data_found.append(data)
-                for l in links:
-                    if l not in urls:
-                        if(len(data_found) >= max_links): break
-                        urls.append(l)
-                if(len(data_found) >= max_links): break
-                print(f"Pages crawled: {len(data_found) + 1} / {max_links}", end="\r")
+                
+                # Don't add more links if we already have enough in the queue.
+                if url_frontier.qsize() + len(data_found) < max_links:
+                    unique_links = set(links) - explored_urls
+
+                    if len(data_found) >= max_links: break
+
+                    for link in unique_links:
+                        url_frontier.put(link)
+                        explored_urls.add(link)
+
+                print(f"Queue size: {url_frontier.qsize()} | Pages crawled: {len(data_found)} / {max_links}", end="\r")
             # empties the futures list so that the next batch can be processed
             futures = []
+
         
             
         print('\n')
