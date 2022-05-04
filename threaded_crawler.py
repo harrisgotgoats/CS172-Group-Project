@@ -66,8 +66,8 @@ def scrape_link(seed): # returns the links and data from this seed_link
 '''
     The command line arguments are as follows:
     [1] = max_links (an integer specifying how many pages to scrape)
-    [3] = max_threads (an integer specifying max number of threads to use for the ThreadPoolExecutor < batch_factor for better perfomance)
-    [4] = filename (name of file containing seed links) | Leave empty to use the default
+    [2] = max_threads (an integer specifying max number of threads to use for the ThreadPoolExecutor < batch_factor for better perfomance)
+    [3] = filename (name of file containing seed links) | Leave empty to use the default
 '''
 if __name__ == "__main__":
     #List of starting urls - If new links added make sure to add the required checks and constraints
@@ -83,7 +83,7 @@ if __name__ == "__main__":
             for url in f:
                 url_frontier.put(url)
     else:
-        url_frontier.append(default_url)
+        url_frontier.put(default_url)
 
     # stores the data objects from each page
     data_found = []
@@ -99,8 +99,8 @@ if __name__ == "__main__":
         while not url_frontier.empty() and len(data_found) < max_links:
             # If we have more than "batch_factor" urls scrape one more page. If there are more than "batch_factor" urls queue
             # queue a batch of "batch_factor" of pages to be crawled at the same time.
-            while(url_frontier.qsize() > 0):
-                if len(futures) + len(data_found) >= max_links: break
+            while not url_frontier.empty():
+                if len(data_found) >= max_links: break
                 futures.append(executor.submit(scrape_link, url_frontier.get()))
 
             # Save the unique links returned by each thread and save their text data
@@ -111,29 +111,27 @@ if __name__ == "__main__":
                 links, data = res
                 data_found.append(data)
                 
-                # Don't add more links if we already have enough in the queue.
-                if url_frontier.qsize() + len(data_found) < max_links:
-                    unique_links = set(links) - explored_urls
+                unique_links = set(links) - explored_urls
 
-                    if len(data_found) >= max_links: break
+                if len(data_found) >= max_links: break
 
-                    for link in unique_links:
-                        url_frontier.put(link)
-                        explored_urls.add(link)
+                for link in unique_links:
+                    url_frontier.put(link)
+                    explored_urls.add(link)
 
-                print(f"Queue size: {url_frontier.qsize()} | Pages crawled: {len(data_found)} / {max_links}", end="\r")
+                print(f"Queue size: {url_frontier.qsize()} | Pages crawled: {len(data_found) + 1} / {max_links}", end="\r")
             # empties the futures list so that the next batch can be processed
             futures = []
+        executor.shutdown(wait=False)
 
         
-            
-        print('\n')
-        with open('Data.json', 'w') as jfile:
-            json.dump(data_found, jfile, indent=4)
-        duration = datetime.timedelta(seconds=(time.time() - start))
-        duration = str(duration).split('.')[0]
-        duration = duration.split(':')
-        print(f"Crawling completed in: {duration[0]} hrs: {duration[1]} mins : {duration[2]} secs")
-        print("Data saved on Data.json")
-        size = os.path.getsize("./Data.json") / 1000**2
-        print(f"Total data collected: {round(size, 2)} MB")
+    print('\nCrawling Completed...')
+    with open('Data.json', 'w') as jfile:
+        json.dump(data_found, jfile, indent=4)
+    duration = datetime.timedelta(seconds=(time.time() - start))
+    duration = str(duration).split('.')[0]
+    duration = duration.split(':')
+    print(f"Crawling completed in: {duration[0]} hrs: {duration[1]} mins : {duration[2]} secs")
+    print("Data saved on Data.json")
+    size = os.path.getsize("./Data.json") / 1000**2
+    print(f"Total data collected: {round(size, 2)} MB")
