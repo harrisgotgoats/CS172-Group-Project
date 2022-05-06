@@ -8,6 +8,7 @@ import datetime
 import os
 import sys
 import queue
+import csv
 from requests.adapters import HTTPAdapter, Retry
 
 
@@ -30,29 +31,18 @@ def scrape_link(seed): # returns the links and data from this seed_link
 
         session.mount('http://', HTTPAdapter(max_retries=retries))
 
-        with session.get(seed, timeout=5) as response:
+        with session.get(seed[1], timeout=10) as response:
             #get the soup object
             soup = bsf(response.text, 'html.parser')
             #Get all the links -- May need to implement better checks
-            links = [l['href'] for l in soup.find_all('a') if (l.has_attr('href') and "https://www.bjpenn.com/mma-news" in l['href'])]
-            
+            links = [[seed[0], l['href']] for l in soup.find_all('a') if (l.has_attr('href') and seed[0] in l['href'])]
 
-            title = soup.find("h1", attrs={"class" : "entry-title"})
-            if title:
-                title = title.text
-            else:
-                title = soup.title.text
-            content = soup.find("div", attrs={"class" : "td-post-content tagdiv-type"})
-            if content:
-                content = " ".join(p.text.strip() for p in content.find_all("p"))
-            else:
-                content = " ".join(p.text.strip() for p in soup.find_all("p"))
 
             #data of the page - currently getting all the text from the page
             data = {
-                'title': title,
-                'url': seed,
-                'content': content
+                'title': soup.title.text,
+                'url': seed[1],
+                'content': " ".join(p.text.strip() for p in soup.find_all("p"))
             }
             return links, data
     except requests.exceptions.Timeout:
@@ -71,7 +61,7 @@ def scrape_link(seed): # returns the links and data from this seed_link
 '''
 if __name__ == "__main__":
     #List of starting urls - If new links added make sure to add the required checks and constraints
-    default_url = "https://www.bjpenn.com/mma-news/ufc/dana-white-shuts-down-potential-francis-ngannou-tyson-fury-fight-fking-waste-of-time-energy-and-money/"
+    default_url_pair = ["https://www.bjpenn.com/mma-news/","https://www.bjpenn.com/mma-news/ufc/dana-white-shuts-down-potential-francis-ngannou-tyson-fury-fight-fking-waste-of-time-energy-and-money/"]
     url_frontier = queue.Queue()
     explored_urls = set()
     # Handles the use of an external file for adding url seed links.
@@ -79,11 +69,12 @@ if __name__ == "__main__":
         if not os.path.exists(sys.argv[3]):
             print(f"ERROR: filename \"{sys.argv[3]}\" does not exist.")
             exit(1)
-        with open(sys.argv[3], "r") as f:
-            for url in f:
-                url_frontier.put(url)
+        with open(sys.argv[3], newline="") as seedfile:
+            urlreader = csv.reader(seedfile)
+            for common_full_pair in urlreader:
+                url_frontier.put(common_full_pair)
     else:
-        url_frontier.put(default_url)
+        url_frontier.put(default_url_pair)
 
     # stores the data objects from each page
     data_found = []
@@ -92,40 +83,46 @@ if __name__ == "__main__":
     #Number of threads to use
     max_threads = int(sys.argv[2])
 
-    with concurrent.futures.ThreadPoolExecutor(max_threads) as executor:
-        # list of futures (threads that have not returned yet)
-        futures = []
-        start = time.time()
-        while not url_frontier.empty() and len(data_found) < max_links:
-            # If we have more than "batch_factor" urls scrape one more page. If there are more than "batch_factor" urls queue
-            # queue a batch of "batch_factor" of pages to be crawled at the same time.
-            while not url_frontier.empty():
-                if len(data_found) >= max_links: break
-                futures.append(executor.submit(scrape_link, url_frontier.get()))
+    executor = concurrent.futures.ThreadPoolExecutor(max_threads)
 
-            # Save the unique links returned by each thread and save their text data
-            for future in concurrent.futures.as_completed(futures):
-                res = future.result()
-                if res == None:
+    # list of futures (threads that have not returned yet)
+    futures = []
+    start = time.time()
+    while not url_frontier.empty():
+        if len(data_found) >= max_links: break
+        # If we have more than "batch_factor" urls scrape one more page. If there are more than "batch_factor" urls queue
+        # queue a batch of "batch_factor" of pages to be crawled at the same time.
+        while not url_frontier.empty():
+            if len(data_found) >= max_links: break
+            futures.append(executor.submit(scrape_link, url_frontier.get()))
+
+        # Save the unique links returned by each thread and save their text data
+        for future in concurrent.futures.as_completed(futures):
+            res = future.result()
+            if res == None:
+                continue
+            links, data = res
+            data_found.append(data)
+
+            if len(data_found) >= max_links: break
+
+            for link in links:
+                if link[1] in explored_urls:
                     continue
-                links, data = res
-                data_found.append(data)
-                
-                unique_links = set(links) - explored_urls
 
-                if len(data_found) >= max_links: break
+                url_frontier.put(link)
+                explored_urls.add(link[1])
 
-                for link in unique_links:
-                    url_frontier.put(link)
-                    explored_urls.add(link)
-
-                print(f"Queue size: {url_frontier.qsize()} | Pages crawled: {len(data_found) + 1} / {max_links}", end="\r")
-            # empties the futures list so that the next batch can be processed
-            futures = []
-        executor.shutdown(wait=False)
-
+            print(f"Pages crawled: {len(data_found) + 1} / {max_links}", end="\r")
+        # empties the futures list so that the next batch can be processed
+        futures = []
+    else:
+        print("Could not find more URLs")
+    
+    executor.shutdown(wait=False, cancel_futures=True)
         
-    print('\nCrawling Completed...')
+        
+    print('\nCrawling Completed\nSaving data to ./Data.json...')
     with open('Data.json', 'w') as jfile:
         json.dump(data_found, jfile, indent=4)
     duration = datetime.timedelta(seconds=(time.time() - start))
