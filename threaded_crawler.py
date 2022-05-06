@@ -56,7 +56,7 @@ def scrape_link(seed): # returns the links and data from this seed_link
 '''
     The command line arguments are as follows:
     [1] = max_links (an integer specifying how many pages to scrape)
-    [2] = max_threads (an integer specifying max number of threads to use for the ThreadPoolExecutor < batch_factor for better perfomance)
+    [2] = max_threads (an integer specifying max number of threads to use for the ThreadPoolExecutor)
     [3] = filename (name of file containing seed links) | Leave empty to use the default
 '''
 if __name__ == "__main__":
@@ -64,6 +64,14 @@ if __name__ == "__main__":
     default_url_pair = ["https://www.bjpenn.com/mma-news/","https://www.bjpenn.com/mma-news/ufc/dana-white-shuts-down-potential-francis-ngannou-tyson-fury-fight-fking-waste-of-time-energy-and-money/"]
     url_frontier = queue.Queue()
     explored_urls = set()
+
+    if len(sys.argv) < 3:
+        print("PLEASE SPECIFY ALL THE REQUIRED PARAMETERS")
+        exit(1)
+    elif not sys.argv[1].isnumeric() or not sys.argv[2].isnumeric():
+        print("PLEASE ENTERY INTEGER VALUES FOR max_links and max_threads")
+        exit(1)
+    
     # Handles the use of an external file for adding url seed links.
     if len(sys.argv) == 4 and len(sys.argv[3]) > 0:
         if not os.path.exists(sys.argv[3]):
@@ -119,9 +127,6 @@ if __name__ == "__main__":
     else:
         print("Could not find more URLs")
     
-    executor.shutdown(wait=False, cancel_futures=True)
-        
-        
     print('\nCrawling Completed\nSaving data to ./Data.json...')
     with open('Data.json', 'w') as jfile:
         json.dump(data_found, jfile, indent=4)
@@ -132,3 +137,5 @@ if __name__ == "__main__":
     print("Data saved on Data.json")
     size = os.path.getsize("./Data.json") / 1000**2
     print(f"Total data collected: {round(size, 2)} MB")
+
+    executor.shutdown(cancel_futures=True)
