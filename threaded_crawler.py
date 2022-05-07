@@ -125,7 +125,7 @@ if __name__ == "__main__":
         # empties the futures list so that the next batch can be processed
         futures = []
     else:
-        print("Could not find more URLs")
+        print("\nCould not find more URLs")
     
     print('\nCrawling Completed\nSaving data to ./Data.json...')
     with open('Data.json', 'w') as jfile:
