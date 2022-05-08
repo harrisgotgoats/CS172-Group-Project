@@ -122,7 +122,8 @@ if __name__ == "__main__":
             exit(1)
         with open(sys.argv[4], newline="") as seedfile:
             urlreader = csv.reader(seedfile)
-            add_to_queue(urlreader)
+            for url in urlreader:
+              add_to_queue(url)
     else:
         add_to_queue(default_urls)
 
@@ -138,7 +139,7 @@ if __name__ == "__main__":
     # Store user arguments
     max_links = int(sys.argv[1])
     max_threads = int(sys.argv[2])
-    url_count_threshold = int(sys.argv[4])
+    url_count_threshold = int(sys.argv[3])
     
     # Create a set for domains we are already scraping
     already_scraping = set()
