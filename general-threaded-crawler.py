@@ -193,8 +193,8 @@ if __name__ == "__main__":
                                 elif (count == url_count_threshold) and (l not in url_count[domain]):
                                     url_count[domain].add(l)
                                     add_to_queue(url_count[domain])
-                                elif count == url_count_threshold + 1:
-                                    add_to_queue(l)
+                                    already_scraping.add(domain)
+                                    del url_count[domain]
 
             print(f"Pages crawled: {len(data_found) + 1} / {max_links}", end="\r")
         
