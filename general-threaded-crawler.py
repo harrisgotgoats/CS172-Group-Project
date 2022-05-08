@@ -99,8 +99,8 @@ def add_to_queue(url):
     The command line arguments are as follows:
     [1] = max_urls (an integer specifying how many pages to scrape)
     [2] = max_threads (an integer specifying max number of threads to use for the ThreadPoolExecutor)
-    [3] = seed links | Leave empty to use the default
-    [4] = url_count_threshold (an integer specifying an amount of minimum unique links crawled in order for the whole site to be crawled 
+    [3] = url_count_threshold (an integer specifying an amount of minimum unique links crawled in order for the whole site to be crawled 
+    [4] = seed links | Leave empty to use the default
 '''
 if __name__ == "__main__":
     # List of starting urls
@@ -111,16 +111,16 @@ if __name__ == "__main__":
     if len(sys.argv) < 4:
         print("PLEASE SPECIFY ALL THE REQUIRED PARAMETERS")
         exit(1)
-    elif not sys.argv[1].isnumeric() or not sys.argv[2].isnumeric() or not sys.argv[4].isnumeric():
+    elif not sys.argv[1].isnumeric() or not sys.argv[2].isnumeric() or not sys.argv[3].isnumeric():
         print("PLEASE ENTERY INTEGER VALUES FOR max_links, max_threads, and url_count_threshold")
         exit(1)
     
     # Handles the use of an external file for adding url seed links.
-    if len(sys.argv) == 5 and len(sys.argv[3]) > 0:
-        if not os.path.exists(sys.argv[3]):
-            print(f"ERROR: filename \"{sys.argv[3]}\" does not exist.")
+    if len(sys.argv) == 5 and len(sys.argv[4]) > 0:
+        if not os.path.exists(sys.argv[4]):
+            print(f"ERROR: filename \"{sys.argv[4]}\" does not exist.")
             exit(1)
-        with open(sys.argv[3], newline="") as seedfile:
+        with open(sys.argv[4], newline="") as seedfile:
             urlreader = csv.reader(seedfile)
             add_to_queue(urlreader)
     else:
@@ -138,7 +138,7 @@ if __name__ == "__main__":
     # Store user arguments
     max_links = int(sys.argv[1])
     max_threads = int(sys.argv[2])
-    url_count_threshold = int(sys.argv[4])
+    url_count_threshold = int(sys.argv[3])
     
     # Create a set for domains we are already scraping
     already_scraping = set()
@@ -214,4 +214,4 @@ if __name__ == "__main__":
     size = os.path.getsize("./Data.json") / 1000**2
     print(f"Total data collected: {round(size, 2)} MB")
 
-    executor.shutdown(cancel_futures=True)
+    executor.shutdown(wait=False, cancel_futures=True)
