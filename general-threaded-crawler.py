@@ -62,7 +62,7 @@ def scrape_url(url):
             data = {
                 'title': soup.title.text,
                 'url': url,
-                'content': " ".join(p.text.strip() for p in soup.find_all("p"))
+                'content': ' '.join(bs.stripped_strings)
             }
             return new_links, data
         
