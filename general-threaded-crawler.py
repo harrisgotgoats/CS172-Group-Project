@@ -215,4 +215,4 @@ if __name__ == "__main__":
     size = os.path.getsize("./Data.json") / 1000**2
     print(f"Total data collected: {round(size, 2)} MB")
 
-    executor.shutdown(cancel_futures=True)
+    executor.shutdown(wait=False, cancel_futures=True)
