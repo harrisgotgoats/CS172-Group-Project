@@ -8,7 +8,6 @@ import datetime
 import os
 import sys
 import queue
-import csv
 from requests.adapters import HTTPAdapter, Retry
 import re
 import math
@@ -64,7 +63,7 @@ def scrape_url(url):
             data = {
                 'title': soup.title.text,
                 'url': url,
-                'content': content.text.strip(),
+                'content': ' '.join(content.stripped_strings)
             }
             return new_links, data
         
@@ -101,7 +100,7 @@ def add_to_queue(url):
     [1] = max_urls (an integer specifying how many pages to scrape)
     [2] = max_threads (an integer specifying max number of threads to use for the ThreadPoolExecutor)
     [3] = url_count_threshold (an integer specifying an amount of minimum unique links crawled in order for the whole site to be crawled 
-    [4] = seed links | Leave empty to use the default
+    [4] = seed links in a .txt file separated by newline| Leave empty to use the default
 '''
 if __name__ == "__main__":
     # List of starting urls
@@ -113,7 +112,7 @@ if __name__ == "__main__":
         print("PLEASE SPECIFY ALL THE REQUIRED PARAMETERS")
         exit(1)
     elif not sys.argv[1].isnumeric() or not sys.argv[2].isnumeric() or not sys.argv[3].isnumeric():
-        print("PLEASE ENTERY INTEGER VALUES FOR max_links, max_threads, and url_count_threshold")
+        print("PLEASE ENTER INTEGER VALUES FOR max_links, max_threads, and url_count_threshold")
         exit(1)
     
     # Handles the use of an external file for adding url seed links.
@@ -122,8 +121,7 @@ if __name__ == "__main__":
             print(f"ERROR: filename \"{sys.argv[4]}\" does not exist.")
             exit(1)
         with open(sys.argv[4], newline="") as seedfile:
-            urlreader = csv.reader(seedfile)
-            add_to_queue(urlreader)
+            add_to_queue(seedfile.read().splitlines())
     else:
         add_to_queue(default_urls)
 
