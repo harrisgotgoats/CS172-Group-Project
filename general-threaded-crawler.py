@@ -11,6 +11,7 @@ import queue
 import csv
 from requests.adapters import HTTPAdapter, Retry
 import re
+import math
 
 
 thread_local = threading.local()
@@ -63,7 +64,7 @@ def scrape_url(url):
             data = {
                 'title': soup.title.text,
                 'url': url,
-                'content': " ".join(p.text.strip() for p in soup.find_all("p"))
+                'content': content.text.strip(),
             }
             return new_links, data
         
@@ -139,7 +140,9 @@ if __name__ == "__main__":
     max_links = int(sys.argv[1])
     max_threads = int(sys.argv[2])
     url_count_threshold = int(sys.argv[3])
-    
+
+    batch_factor = 0 # Dynamically determines the number of links processed per cycle
+
     # Create a set for domains we are already scraping
     already_scraping = set()
     for u in list(url_frontier.queue):
@@ -154,10 +157,11 @@ if __name__ == "__main__":
     while not url_frontier.empty():
         if len(data_found) >= max_links:
             break
-        
-        # If we have more than "batch_factor" urls scrape one more page.
-        # If there are more than "batch_factor" urls queue, queue a batch of "batch_factor" of pages to be crawled at the same time.
-        while not url_frontier.empty():
+
+        batch_factor = math.floor(url_frontier.qsize() / 
+                                                        (math.log(url_frontier.qsize(), 2) + 1))
+
+        for i in range(batch_factor):
             if len(data_found) >= max_links:
                 break
             futures.append(executor.submit(scrape_url, url_frontier.get()))
@@ -214,4 +218,4 @@ if __name__ == "__main__":
     size = os.path.getsize("./Data.json") / 1000**2
     print(f"Total data collected: {round(size, 2)} MB")
 
-    executor.shutdown(wait=False, cancel_futures=True)
+    executor.shutdown(wait=False)
