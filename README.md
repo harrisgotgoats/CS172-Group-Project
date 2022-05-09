@@ -1,6 +1,6 @@
 # CS172-Group-Project
 
-**Team**: Bryan Guevara, 
+**Team**: Bryan Guevara, Patrick Fenn, Thet Zaw, Harris shepard
 
 ## Dependencies
 * curses
