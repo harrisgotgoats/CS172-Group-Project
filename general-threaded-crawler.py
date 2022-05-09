@@ -237,3 +237,6 @@ if __name__ == "__main__":
     stats.refresh()
     
     executor.shutdown(wait=False)
+    
+    curses.napms(5000)
+    stats.endwin()
