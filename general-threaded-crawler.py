@@ -120,9 +120,11 @@ if __name__ == "__main__":
         if not os.path.exists(sys.argv[4]):
             print(f"ERROR: filename \"{sys.argv[4]}\" does not exist.")
             exit(1)
-        with open(sys.argv[4], newline="") as seedfile:
-            add_to_queue(seedfile.read().splitlines())
+        with open(sys.argv[4], "r") as seedfile:
+            for line in seedfile.readlines():
+                add_to_queue(line)
     else:
+        print("NO FILE ENTERED FOR SEEDS. Starting crawler with default seed.")
         add_to_queue(default_urls)
 
     # Stores the data objects from each page
