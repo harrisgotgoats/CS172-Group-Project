@@ -237,8 +237,3 @@ if __name__ == "__main__":
     stats.refresh()
     
     executor.shutdown(wait=False)
-
-    #Screen hangs for 5 seconds before clearing the screen.
-    curses.napms(5000)
-    # Screen gets deleted after the program exits
-    curses.endwin()
