@@ -11,6 +11,7 @@ import queue
 from requests.adapters import HTTPAdapter, Retry
 import re
 import math
+import curses
 
 
 thread_local = threading.local()
@@ -154,10 +155,12 @@ if __name__ == "__main__":
     
     futures = []
     start = time.time()
+
+    stats = curses.initscr()
+
     while not url_frontier.empty():
         if len(data_found) >= max_links:
             break
-
         batch_factor = math.floor(url_frontier.qsize() / 
                                                         (math.log(url_frontier.qsize(), 2) + 1))
 
@@ -177,45 +180,60 @@ if __name__ == "__main__":
             if len(data_found) >= max_links:
                 break
 
-            for l in links:
-                if l not in explored_urls:
-                    # Add / to all urls to keep it consistent
-                    if l[-1] != '/':
-                        l += '/'
+            #If we already have enough links there's no need to keep finding more.
+            if not url_frontier.qsize() >= max_links:
+                for l in links:
+                    if l not in explored_urls:
+                        # Add / to all urls to keep it consistent
+                        if l[-1] != '/':
+                            l += '/'
 
-                    domain = get_domain(l)
-                    if domain:
-                        if domain in already_scraping:
-                            add_to_queue(l)
-                        else:
-                            if domain not in url_count:
-                                url_count[domain] = set([l])
+                        domain = get_domain(l)
+                        if domain:
+                            if domain in already_scraping:
+                                add_to_queue(l)
                             else:
-                                count = len(url_count[domain])
-                                if count < url_count_threshold:
-                                    url_count[domain].add(l)
-                                elif (count == url_count_threshold) and (l not in url_count[domain]):
-                                    url_count[domain].add(l)
-                                    add_to_queue(url_count[domain])
-                                    already_scraping.add(domain)
-                                    del url_count[domain]
+                                if domain not in url_count:
+                                    url_count[domain] = set([l])
+                                else:
+                                    count = len(url_count[domain])
+                                    if count < url_count_threshold:
+                                        url_count[domain].add(l)
+                                    elif (count == url_count_threshold) and (l not in url_count[domain]):
+                                        url_count[domain].add(l)
+                                        add_to_queue(url_count[domain])
+                                        already_scraping.add(domain)
+                                        del url_count[domain]
 
-            print(f"Pages crawled: {len(data_found) + 1} / {max_links}", end="\r")
+
+            duration = datetime.timedelta(seconds=(time.time() - start))
+            duration = str(duration).split('.')[0]
+            duration = duration.split(':')
+
+            stats.clear()
+            stats.addstr(0, 0, "============================== MMA NEWS CRAWLER ==================================")
+            stats.addstr(1, 0, f"Pages crawled: ............... {len(data_found) + 1} / {max_links}")
+            stats.addstr(2, 0, f"Queue size: ............... {url_frontier.qsize()}")
+            stats.addstr(3, 0, f"Batch size: ............... {batch_factor}")
+            stats.addstr(4, 0, f"Time Elapsed: ............... {duration[0]} hrs: {duration[1]} mins : {duration[2]} secs")
+            stats.refresh()
         
         # Empties the futures list so that the next batch can be processed
         futures = []
     else:
-        print("\nCould not find more URLs")
-    
-    print('\nCrawling Completed\nSaving data to ./Data.json...')
+        stats.addstr(6, 0,"Could not find more URLs")
+
+    stats.addstr(7, 0, "Crawling Completed")
+    stats.addstr(8, 0, 'Saving data to ./Data.json...')
     with open('Data.json', 'w') as jfile:
         json.dump(data_found, jfile, indent=4)
     duration = datetime.timedelta(seconds=(time.time() - start))
     duration = str(duration).split('.')[0]
     duration = duration.split(':')
-    print(f"Crawling completed in: {duration[0]} hrs: {duration[1]} mins : {duration[2]} secs")
-    print("Data saved on Data.json")
+    stats.addstr(10, 0, "Data saved on Data.json")
     size = os.path.getsize("./Data.json") / 1000**2
-    print(f"Total data collected: {round(size, 2)} MB")
-
+    stats.addstr(11, 0, f"Crawling completed in: ............... {duration[0]} hrs: {duration[1]} mins : {duration[2]} secs")
+    stats.addstr(12, 0, f"Total data collected: ............... {round(size, 2)} MB")
+    stats.refresh()
+    
     executor.shutdown(wait=False)
