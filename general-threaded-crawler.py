@@ -64,7 +64,13 @@ def scrape_url(url):
                 'url': url,
                 'content': ' '.join(bs.stripped_strings)
             }
-            return new_links, data
+
+            images = []
+            for i in  soup.find_all('img'):
+                images.append(i['src'])
+
+
+            return new_links, data, images
         
     except requests.exceptions.Timeout:
         return None
@@ -165,7 +171,7 @@ if __name__ == "__main__":
             res = future.result()
             if res == None:
                 continue
-            links, data = res
+            links, data, images = res
             data_found.append(data)
 
             if len(data_found) >= max_links:
