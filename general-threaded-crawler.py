@@ -1,4 +1,3 @@
-from numpy import true_divide
 import requests
 import json
 import threading
@@ -89,12 +88,14 @@ def get_domain(url):
 # Add either the list of urls or a single url to the queue and update explored_urls set
 def add_to_queue(url):
     if type(url) == str:
-        url_frontier.put(url)
-        explored_urls.add(url)
+        if url not in explored_urls:
+            url_frontier.put(url)
+            explored_urls.add(url)
     else:
         for u in url:
-            url_frontier.put(u)
-            explored_urls.add(u)
+            if url not in explored_urls:
+                url_frontier.put(u)
+                explored_urls.add(u)
 
 
 '''
@@ -186,7 +187,7 @@ if __name__ == "__main__":
                 break
 
             #If we already have enough links there's no need to keep finding more.
-            if not url_frontier.qsize() >= max_links:
+            if url_frontier.qsize() < max_links:
                 for l in links:
                     if l in explored_urls:
                         continue
@@ -211,13 +212,10 @@ if __name__ == "__main__":
                                     add_to_queue(url_count[domain])
                                     already_scraping.add(domain)
                                     del url_count[domain]
-                    
-
 
             duration = datetime.timedelta(seconds=(time.time() - start))
             duration = str(duration).split('.')[0]
             duration = duration.split(':')
-
             stats.clear()
             stats.addstr(0, 0, "============================== MMA NEWS CRAWLER ==================================")
             stats.addstr(1, 0, f"Pages crawled: ............... {len(data_found) + 1} / {max_links}")
