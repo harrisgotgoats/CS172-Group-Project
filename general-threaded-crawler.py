@@ -1,3 +1,4 @@
+from numpy import true_divide
 import requests
 import json
 import threading
@@ -116,6 +117,10 @@ if __name__ == "__main__":
         print("PLEASE ENTER INTEGER VALUES FOR max_links, max_threads, and url_count_threshold")
         exit(1)
     
+    if int(sys.argv[1]) <= 0 or int(sys.argv[2]) <= 0 or int(sys.argv[3]) <= 0:
+        print("PLEASE ENTER VALIED INTEGER VALUES FOR max_links, max_threads, and url_count_threshold")
+        exit(1)
+    
     # Handles the use of an external file for adding url seed links.
     if len(sys.argv) == 5 and len(sys.argv[4]) > 0:
         if not os.path.exists(sys.argv[4]):
@@ -183,27 +188,30 @@ if __name__ == "__main__":
             #If we already have enough links there's no need to keep finding more.
             if not url_frontier.qsize() >= max_links:
                 for l in links:
-                    if l not in explored_urls:
-                        # Add / to all urls to keep it consistent
-                        if l[-1] != '/':
-                            l += '/'
+                    if l in explored_urls:
+                        continue
 
-                        domain = get_domain(l)
-                        if domain:
-                            if domain in already_scraping:
-                                add_to_queue(l)
+                    # Add / to all urls to keep it consistent
+                    if l[-1] != '/':
+                        l += '/'
+
+                    domain = get_domain(l)
+                    if domain:
+                        if domain in already_scraping:
+                            add_to_queue(l)
+                        else:
+                            if domain not in url_count:
+                                url_count[domain] = set([l])
                             else:
-                                if domain not in url_count:
-                                    url_count[domain] = set([l])
-                                else:
-                                    count = len(url_count[domain])
-                                    if count < url_count_threshold:
-                                        url_count[domain].add(l)
-                                    elif (count == url_count_threshold) and (l not in url_count[domain]):
-                                        url_count[domain].add(l)
-                                        add_to_queue(url_count[domain])
-                                        already_scraping.add(domain)
-                                        del url_count[domain]
+                                count = len(url_count[domain])
+                                if count < url_count_threshold:
+                                    url_count[domain].add(l)
+                                elif (count == url_count_threshold) and (l not in url_count[domain]):
+                                    url_count[domain].add(l)
+                                    add_to_queue(url_count[domain])
+                                    already_scraping.add(domain)
+                                    del url_count[domain]
+                    
 
 
             duration = datetime.timedelta(seconds=(time.time() - start))
@@ -236,7 +244,7 @@ if __name__ == "__main__":
     stats.addstr(12, 0, f"Total data collected: ............... {round(size, 2)} MB")
     stats.refresh()
     
-    executor.shutdown(wait=False)
+    executor.shutdown(wait=False, cancel_futures=True)
     
     curses.napms(5000)
     curses.endwin()
