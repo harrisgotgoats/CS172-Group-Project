@@ -27,7 +27,7 @@ import org.apache.lucene.util.QueryBuilder;
 // https://lucene.apache.org/core/9_1_0/core/index.html
 // **
 
-
+//class not used
 public class Searcher {
 
     //StandardQueryParser queryParser;
@@ -35,7 +35,7 @@ public class Searcher {
     IndexSearcher searcher;
     //QueryParser queryParser;
 
-
+    
     public Searcher(String indexDirectoryPath) throws IOException {
         Directory indexDirectory = FSDirectory.open(new File(indexDirectoryPath).toPath());
         //searcher = new IndexSearcher(indexDirectory);
@@ -45,7 +45,7 @@ public class Searcher {
     {
         //Get directory data for the index "cs172 java lucene\Data"
         String userDir = System.getProperty("user.dir");
-        String indexDir = userDir + "\\Data";
+        String indexDir = userDir + "\\Index";
 
         //Define IndexSearcher
         Path path = (new File(indexDir)).toPath();

@@ -160,7 +160,7 @@ public class Indexer {
     public static void main(String[] args) throws IOException {
         //System.out.println("Hello World");
         String workingDir = System.getProperty("user.dir");
-        String indexDir = workingDir+"\\Data";
+        String indexDir = workingDir+"\\Index";
         System.out.println("Working Directory = " + workingDir);
 
         Indexer indexer = new Indexer(indexDir);
