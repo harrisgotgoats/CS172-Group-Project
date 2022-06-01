@@ -41,12 +41,11 @@ public class Searcher {
         //searcher = new IndexSearcher(indexDirectory);
 
     }
-
-    public static void main(String[] args) throws IOException {
-        
+    public static IndexSearcher setupIndex() throws IOException
+    {
+        //Get directory data for the index "cs172 java lucene\Data"
         String userDir = System.getProperty("user.dir");
         String indexDir = userDir + "\\Data";
-        //Searcher searcher = new Searcher(indexDir);
 
         //Define IndexSearcher
         Path path = (new File(indexDir)).toPath();
@@ -54,37 +53,66 @@ public class Searcher {
         DirectoryReader ireader = DirectoryReader.open(indexDirectory);
         IndexSearcher isearcher = new IndexSearcher(ireader);
 
+
+
+        return isearcher;
+    }
+
+    public static void main(String[] args) throws IOException {
+        /* 
+        //Get directory data for the index "cs172 java lucene\Data"
+        String userDir = System.getProperty("user.dir");
+        String indexDir = userDir + "\\Data";
+        //Searcher searcher = new Searcher(indexDir);
+
+         
+        //Define IndexSearcher
+        Path path = (new File(indexDir)).toPath();
+        Directory indexDirectory = FSDirectory.open(path); 
+        DirectoryReader ireader = DirectoryReader.open(indexDirectory);
+        IndexSearcher isearcher = new IndexSearcher(ireader);
+        */
+        //hopefully try catch block automatically closes opened index
+        try
+        {
+            //define an index searcher
+            IndexSearcher isearcher = setupIndex();
+
+            //define a QueryBuilder to build the query
+            StandardAnalyzer analyzer = new StandardAnalyzer(); //has to match the analyzer in indexer.java
+            QueryBuilder builder = new QueryBuilder(analyzer); // builder that makes query objects
+
+            String field = "content";
+            String queryText = "Justin";
+            Query q = builder.createPhraseQuery(field, queryText);
+
+            //get Query results
+            ScoreDoc[] hits = isearcher.search(q, 10).scoreDocs; //get query results, max 10
+            //assertEquals(1, hits.length);
+            System.out.println("hits length "+ hits.length);
+            System.out.println("Search Results for: "+queryText);
+
+            //Print Query Results
+            for (int i = 0; i < hits.length; i++) {
+                Document hitDoc = isearcher.doc(hits[i].doc);
+                System.out.println(hitDoc.get("url"));
+            }
+
+            //first Document content
+            //Document firstDoc = isearcher.doc(hits[0].doc);
+            //System.out.println("content of firstDoc"+firstDoc.get("content")+"\n");
+            
+            Explanation exp = isearcher.explain(q,0);
+            System.out.println("explanation of firstDoc+n"+exp.toString());
+            
+        } catch(IOException e) {
+            System.out.println("An I/O Error Occurred..!!");
+        }
         
-        //make the Query
-        StandardAnalyzer analyzer = new StandardAnalyzer();
-        QueryBuilder builder = new QueryBuilder(analyzer); // builder that makes query objects
 
-        String field = "content";
-        String queryText = "Justin";
-        Query q = builder.createPhraseQuery(field, queryText);
-
-        //get Query results
-        ScoreDoc[] hits = isearcher.search(q, 10).scoreDocs; //get query results, max 10
-        //assertEquals(1, hits.length);
-        System.out.println("hits length "+ hits.length);
-        System.out.println("Search Results for: "+queryText);
-
-        //Print Query Results
-        for (int i = 0; i < hits.length; i++) {
-            Document hitDoc = isearcher.doc(hits[i].doc);
-            System.out.println(hitDoc.get("url"));
-          }
-
-        //first Document content
-        //Document firstDoc = isearcher.doc(hits[0].doc);
-        //System.out.println("content of firstDoc"+firstDoc.get("content")+"\n");
-        
-        Explanation exp = isearcher.explain(q,0);
-        System.out.println("explanation of firstDoc+n"+exp.toString());
-
-
+        /* 
         ireader.close();
-        indexDirectory.close();
+        indexDirectory.close();*/
         //IOUtils.rm(path); //removes the entire index
 
 
